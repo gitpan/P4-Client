@@ -33,7 +33,7 @@ use vars qw( $VERSION @ISA @EXPORT @EXPORT_OK $AUTOLOAD );
 @EXPORT_OK = qw( );
 @EXPORT = qw( );
 
-$VERSION = '2.2279';
+$VERSION = '2.2596';
 
 bootstrap P4::Client $VERSION;
 

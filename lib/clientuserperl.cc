@@ -329,7 +329,9 @@ ClientUserPerl::OutputStat( StrDict *varList )
 		printf( "OutputStat: spec and data both defined\n" );
 	    Spec s( spec->Text(), "" );
 
-	    s.Parse( data->Text(), &specData, &e );
+	    // Use ParseNoValid to avoid invalid data in the form causing
+	    // an unnecessary parse failure.
+	    s.ParseNoValid( data->Text(), &specData, &e );
 	    if ( e.Test() )
 	    {
 		HandleError( &e );
@@ -563,13 +565,16 @@ ClientUserPerl::DictToHash( StrDict *d, HV *hv )
 void
 ClientUserPerl::SplitKey( const StrPtr *key, StrBuf &base, StrBuf &index )
 {
-    int i = 0;
+    int i;
 
     base = *key;
     index = "";
-    for ( i = 0; i < key->Length(); i++ )
+    // Start at the end and work back till we find the first char that is
+    // neither a digit, nor a comma. That's the split point.
+    for ( i = key->Length(); i;  i-- )
     {
-	if ( isdigit( (*key)[ i ] ) )
+	char prev = (*key)[ i-1 ];
+	if ( !isdigit( prev ) && prev != ',' )
 	{
 	    base.Set( key->Text(), i );
 	    index.Set( key->Text() + i );
@@ -601,9 +606,17 @@ ClientUserPerl::InsertItem( HV *hv, const StrPtr *var, const StrPtr *val )
 
 
     // If there's no index, then we insert into the top level hash 
-    // and we're out easy
+    // but if the key is already defined then we need to rename the key. This
+    // is probably one of those special keys like otherOpen which can be
+    // both an array element and a scalar. The scalar comes last, so we
+    // just rename it to "otherOpens" to avoid trashing the previous key
+    // value
     if ( index == "" )
     {
+	svp = hv_fetch( hv, base.Text(), base.Length(), 0 );
+	if ( svp )
+	    base.Append( "s" );
+
 	if ( debug )
 	    printf( "\tCreating new scalar hash member %s\n", base.Text() );
 	hv_store( hv, base.Text(), base.Length(), 

@@ -117,8 +117,10 @@ sub OutputStat
 		    print( "... ... $item\n" );
 		}
 	    }
-
-	    print("... $key ", $hash->{ $key }, "\n" );
+	    else
+	    {
+		print("... $key ", $hash->{ $key }, "\n" );
+	    }
 	}
 	print("\n");
 }

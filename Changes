@@ -1,4 +1,38 @@
 Revision history for Perl extension P4::Client.
+2.2596 Tue Jan 14 2003
+
+      - Allow form parsing to accept forms deliberately initialised with
+        invalid data. 
+
+2.2411 Wed Nov 27 2002
+
+      -	Port bug fix from P4Ruby to P4Perl. Certain variable names get
+	reused in tagged mode and this causes the hash members to lose
+	their earlier contents when the later value comes along. Specifically
+	this is otherLock and otherOpen in the output of "p4 fstat". This
+	slightly unpleasant fix simply renames the later variable name by
+	appending an "s" to it. So otherLock becomes otherLocks and otherOpen
+	becomes otherOpens. 
+	
+	Now otherOpen is an array containing the user/client of the other 
+	users who have the file open and otherLock is a single-element
+	array containing the user/client of the user who has the file locked.
+	
+	otherOpens contains the number of other users who have the file
+	opened.
+	
+	otherLocks contains an empty string.
+	
+	Since the latter two are quite redundant they may be explicitly 
+	removed in a future release.
+
+      - Fix bogus output of P4::UI::OutputStat - it was producing some 
+        duplicate output.
+	
+2.2373 Tue Nov 19 2002
+	- Bug fix. Tagged mode was not handling fields with embedded numbers
+	  in their name (like P4DTI-*) well. Thanks to ravi narayan.
+
 2.2279 Fri Oct 25 2002
         - Bumped version to 2.2279 to make CPAN.pm get people the latest
 	  version. It thought that 1.977 was the latest release!
