@@ -1,0 +1,24 @@
+			README
+			======
+
+This extension implements an object-oriented Perl interface to the Perforce
+SCM System using the API supplied by Perforce software.
+
+You must download and install the API before you can build this extension.
+
+Get yer API from ftp://ftp.perforce.com/pub/perforce/rNN.n/bin.XXXXXX
+
+Where NN.n is the release number ( currently 00.2 ) and XXXXX is your
+platform.
+
+
+Build as usual:
+
+	perl Makefile.PL
+	make
+	make test
+	make install
+
+If you have problems, see the PORTING file for likely reasons and what
+you should do about it.
+

@@ -1,0 +1,16 @@
+Changes
+Client.pm
+Client.xs
+MANIFEST
+LICENSE
+PORTING
+README
+Makefile.PL
+test.pl.skel
+UI.pm
+lib/clientuserperl.cc
+lib/clientuserperl.h
+lib/Makefile.PL
+hints/linux.pl
+hints/freebsd.pl
+typemap

@@ -1,0 +1,54 @@
+Revision history for Perl extension P4::Client.
+
+0.50  Thu Jan 25
+	- Renamed P4::ClientApi to P4::Client.
+
+0.05  Mon Jan 15
+	- Added AUTOLOAD functionality for Run method so that the 
+	  Perforce commands can be used as methods directly. Also
+	  pared down the export list as we don't want to export
+	  anything at all.
+
+	- First publicly available version released under BSD-like 
+	  licence.
+
+0.04  Thu Jan 11
+	- Back ported to 5.005_003 and ported to FreeBSD. Now works on 
+	  Linux and FreeBSD on perl 5.005_003 and perl 5.6.0
+
+0.03  Fri Jan 5
+	- Added in some features to make it easier to back port to
+	  versions of Perl prior to 5.6. Still won't work on these older
+	  versions though.
+
+	- Massive rework. Now each instance of a P4::ClientApi object
+	  has its own Error object and counts the Init and Final calls
+	  so that destruction is clean. The object is now a blessed 
+	  hash and the pointers are stored as IV members of the hash.
+	  This means you can now declare and use as many P4::ClientApi
+	  objects as you want without them treading on each others toes.
+	  Should be thread-safe too, but that's not been tested.
+
+	- Tweaked Makefile.PL so that the nasty bits of the build are
+	  mostly in the hints file. Should make porting a bit easier
+
+0.02  Thu Jan  4 
+	- Added support for numeric arguments to P4::ClientApi::Run() to
+	  make life easier on callers
+
+	- Cleaned up destructor code to make it call ClientApi->Final() if
+	  the number of initialisations exceeds the number of calls to
+	  Final(). This prevents hangs when the object is destroyed without
+	  calling Final() at the cost of ruining what little thread safety
+	  we had ( not much ).
+
+	- At the moment you can only have one P4::ClientApi object in
+	  client programs. Yuk.
+
+	- Improved documentation
+
+0.01  Tue Jan  2
+	- original version; 
+
+	- Contains basic support for running p4 commands through 
+	  the API. 

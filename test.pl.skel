@@ -1,0 +1,114 @@
+# Copyright (c) 1997-2001, Perforce Software, Inc.  All rights reserved.
+# 
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+# 
+# 1.  Redistributions of source code must retain the above copyright
+#     notice, this list of conditions and the following disclaimer.
+# 
+# 2.  Redistributions in binary form must reproduce the above copyright
+#     notice, this list of conditions and the following disclaimer in the
+#     documentation and/or other materials provided with the distribution.
+# 
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL PERFORCE SOFTWARE, INC. BE LIABLE FOR ANY
+# DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+# (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+# ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+# SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+# Before `make install' is performed this script should be runnable with
+# `make test'. After `make install' it should work as `perl test.pl'
+
+######################### We start with some black magic to print on failure.
+
+# Change 1..1 below to 1..last_test_to_print .
+# (It may become useful if the test is moved to ./t subdirectory.)
+
+BEGIN { $| = 1; print "1..5\n"; }
+END {print "not ok 1\n" unless $loaded;}
+use P4::Client;
+use P4::UI;
+use strict;
+use vars qw( $loaded $p4port );
+
+$loaded = 1;
+$p4port = "__P4PORT__";
+print "ok 1\n";
+
+######################### End of black magic.
+
+# Insert your test code below (better if it prints "ok 13"
+# (correspondingly "not ok 13") depending on the success of chunk 13
+# of the test code):
+
+package TestUI;
+
+# This class is a derived P4::UI which we use in the tests to stop output
+# from Perforce appearing all over the screen. We just pick up on errors.
+
+use strict;
+use vars qw( @ISA );
+
+@ISA = qw( P4::UI );
+
+sub new
+{
+	my $class = shift;
+	my $self = new P4::UI;
+	$self->{OK} = 1;
+	bless( $self, $class );
+	return $self;
+}
+
+sub OutputInfo
+{
+	return;
+}
+
+sub OutputError
+{
+	my $self = shift;
+	$self->{OK} = 0;
+	print( @_, "\n" );
+}
+
+sub OutputStat
+{
+	return;
+}
+
+sub Reset
+{
+	my $self = shift;
+	$self->{OK} = 1;
+}
+
+sub OK
+{
+	my $self = shift;
+	return $self->{OK};
+}
+
+package main;
+
+my $client = new P4::Client();
+my $ui = new TestUI;
+
+print( defined( $client ) ? "ok 2\n" : "not ok 2\n" );
+
+$client->SetClient( "someclientname" );
+$client->SetProtocol( "tag", "" );
+$client->SetPort( $p4port );
+print( $client->Init() ? "ok 3\n" : "not ok 3\n" );
+print( $client->GetClient() eq "someclientname" ? "ok 4\n" : "not ok 4\n" );
+
+# The only real test we run here.
+$client->SetCwd( "/" );
+$client->Users( $ui );	# Using Autoloading syntax
+print( $ui->OK() ? "ok 5\n" : "not ok 5\n" );
+$client->Final();

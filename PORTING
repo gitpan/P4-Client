@@ -1,0 +1,17 @@
+		Porting Notes for P4::Client
+		============================
+
+So far, I've ported this extension to Linux and FreeBSD, and no further.
+It should go pretty cleanly onto almost any Unix platform, particularly
+if you're using gcc as your compiler.
+
+The trick is that the files need to be compiled by a C++ compiler instead
+of the usual C compiler so you will probably need to copy some of the
+stuff from the Linux/FreeBSD hints files to get it going.
+
+If you do port this extension to another platform, please send me the details
+of how you got it going ( preferably as a hints file ) and I'll add it
+to the distribution for others.
+
+Tony Smith
+15 Jan 2001
