@@ -26,21 +26,44 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 */
 
+/*
+ * Include math.h here because it's included by some Perl headers and on
+ * Win32 it must be included with C++ linkage. Including it here prevents it
+ * from being reincluded later when we include the Perl headers with C linkage.
+ */
+#ifdef OS_NT
+#  include <math.h>
+#endif
+
 #include "clientapi.h"
 #include "spec.h"
+
+/* When including Perl headers, make sure the linkage is C, not C++ */
+
+extern "C" 
+{
 #include "EXTERN.h"
 #include "perl.h"
 #include "XSUB.h"
+}
+
+/*******************************************************************************
+ * Sort out Perl oddities.
+ ******************************************************************************/
 
 #ifdef Error
 // Defined for unknown reasons by old versions of Perl to be Perl_Error
 # undef Error
 #endif
 
-#include "clientuserperl.h"
+/*
+ * Later versions of perl have a different calling interface
+ */
 
 #ifdef PERL_REVISION
-# define USE_NEW_PERL_API
+# define PERL_CALL_METHOD( method, ctx ) call_method( method, ctx )
+#else
+# define PERL_CALL_METHOD( method, ctx ) perl_call_method( method, ctx )
 #endif
 
 #ifndef dTHX
@@ -50,11 +73,18 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 # define dTHX 	1
 #endif
 
-static void HashToForm( HV *hv, StrBuf *b );
-static void DictToHash( StrDict *d, HV *hv );
-static void SplitKey( const StrPtr *key, StrBuf &base, StrBuf &index );
-static void InsertItem( HV *hv, const StrPtr *var, const StrPtr *val );
-static HV * FlattenHash( HV *hv );
+/*******************************************************************************
+ * Now proceed with the normal stuff
+ ******************************************************************************/
+
+#include "clientuserperl.h"
+
+
+ClientUserPerl::ClientUserPerl( SV * perlUI )
+{ 
+    this->perlUI = perlUI; 
+    debug = 0;
+}
 
 void
 ClientUserPerl::Edit( FileSys *f1, Error *e )
@@ -69,11 +99,7 @@ ClientUserPerl::Edit( FileSys *f1, Error *e )
 	XPUSHs( sv_2mortal( newSVpv( f1->Name(), 0 ) ) );
 	PUTBACK;
 
-#ifdef USE_NEW_PERL_API
-	call_method( "Edit", G_VOID );
-#else
-	perl_call_method( "Edit", G_VOID );
-#endif
+	PERL_CALL_METHOD( "Edit", G_VOID );
 
 	// Clean up stack for return
 	SPAGAIN;
@@ -96,11 +122,7 @@ ClientUserPerl::ErrorPause( char *errBuf, Error *e )
 	XPUSHs( sv_2mortal( newSVpv( errBuf, 0 ) ) );
 	PUTBACK;
 
-#ifdef USE_NEW_PERL_API
-	call_method( "ErrorPause", G_VOID );
-#else
-	perl_call_method( "ErrorPause", G_VOID );
-#endif
+	PERL_CALL_METHOD( "ErrorPause", G_VOID );
 
 	// Clean up stack for return
 	SPAGAIN;
@@ -126,11 +148,7 @@ ClientUserPerl::HandleError( Error *e )
 	XPUSHs( sv_2mortal( newSVpv( errBuf.Text(), errBuf.Length() ) ) );
 	PUTBACK;
 
-#ifdef USE_NEW_PERL_API
-	call_method( "OutputError", G_VOID );
-#else
-	perl_call_method( "OutputError", G_VOID );
-#endif
+	PERL_CALL_METHOD( "OutputError", G_VOID );
 
 	// Clean up stack for return
 	SPAGAIN;
@@ -154,11 +172,7 @@ ClientUserPerl::InputData( StrBuf *strbuf, Error *e )
 	XPUSHs( perlUI );
 	PUTBACK;
 
-#ifdef USE_NEW_PERL_API
-	n = call_method( "InputData", G_SCALAR );
-#else
-	n = perl_call_method( "InputData", G_SCALAR );
-#endif
+	n = PERL_CALL_METHOD( "InputData", G_SCALAR );
 
 	SPAGAIN;
 	if ( ! n )
@@ -230,11 +244,7 @@ ClientUserPerl::OutputError( char *errBuf )
 	XPUSHs( sv_2mortal( newSVpv( errBuf, 0 ) ) );
 	PUTBACK;
 
-#ifdef USE_NEW_PERL_API
-	call_method( "OutputError", G_VOID );
-#else
-	perl_call_method( "OutputError", G_VOID );
-#endif
+	PERL_CALL_METHOD( "OutputError", G_VOID );
 
 	// Clean up stack for return
 	SPAGAIN;
@@ -262,11 +272,7 @@ ClientUserPerl::OutputInfo( char level, const_char *data )
 	XPUSHs( sv_2mortal( newSVpv( (char *)data, 0 ) ) );
 	PUTBACK;
 
-#ifdef USE_NEW_PERL_API
-	call_method( "OutputInfo", G_VOID );
-#else
-	perl_call_method( "OutputInfo", G_VOID );
-#endif
+	PERL_CALL_METHOD( "OutputInfo", G_VOID );
 
 	// Clean up stack for return
 	SPAGAIN;
@@ -299,6 +305,9 @@ ClientUserPerl::OutputStat( StrDict *varList )
 	SAVETMPS;
 	PUSHMARK(SP);
 
+	if ( debug )
+	    printf( "OutputStat: starting to parse data\n" );
+
 	// Create a new HV and make it mortal
 	hv = newHV();
 	sv_2mortal( (SV *)hv );
@@ -313,6 +322,8 @@ ClientUserPerl::OutputStat( StrDict *varList )
 
 	if ( spec && data )
 	{
+	    if ( debug )
+		printf( "OutputStat: spec and data both defined\n" );
 	    Spec s( spec->Text(), "" );
 
 	    s.Parse( data->Text(), &specData, &e );
@@ -326,7 +337,14 @@ ClientUserPerl::OutputStat( StrDict *varList )
 	}
 
 	// Now store the rest
+	if ( debug )
+	    printf( "OutputStat: Converting dictionary to hash\n" );
+
 	DictToHash( input, hv );
+
+	if ( debug )
+	    printf( "OutputStat: Conversion done.\n" );
+
 
 	// Now call the perl sub and pass a ref to the HV as its arg
 	href = sv_2mortal( newRV( (SV *)hv ) );
@@ -334,11 +352,7 @@ ClientUserPerl::OutputStat( StrDict *varList )
 	XPUSHs( href );
 	PUTBACK;
 
-#ifdef USE_NEW_PERL_API
-	call_method( "OutputStat", G_VOID );
-#else
-	perl_call_method( "OutputStat", G_VOID );
-#endif
+	PERL_CALL_METHOD( "OutputStat", G_VOID );
 
 	SPAGAIN;
 	PUTBACK;
@@ -362,11 +376,7 @@ ClientUserPerl::OutputText( const_char *data, int length )
 	XPUSHs( sv_2mortal( newSViv( length ) ) );
 	PUTBACK;
 
-#ifdef USE_NEW_PERL_API
-	call_method( "OutputText", G_VOID );
-#else
-	perl_call_method( "OutputText", G_VOID );
-#endif
+	PERL_CALL_METHOD( "OutputText", G_VOID );
 
 	// Clean up stack for return
 	SPAGAIN;
@@ -403,11 +413,7 @@ ClientUserPerl::Prompt( const StrPtr &msg, StrBuf &rsp,
 	XPUSHs( sv_2mortal( newSVpv( msg.Text(), msg.Length() ) ) );
 	PUTBACK;
 
-#ifdef USE_NEW_PERL_API
-	n = call_method( "Prompt", G_VOID );
-#else
-	n = perl_call_method( "Prompt", G_VOID );
-#endif
+	n = PERL_CALL_METHOD( "Prompt", G_SCALAR );
 
 	// Clean up stack for return
 	SPAGAIN;
@@ -419,13 +425,50 @@ ClientUserPerl::Prompt( const StrPtr &msg, StrBuf &rsp,
 	LEAVE;
 }
 
+void	
+ClientUserPerl::Diff( FileSys *f1, FileSys *f2, int doPage,
+	       			char *diffFlags, Error *e )
+{
+	dTHX;
+        dSP;
+        ENTER;
+        SAVETMPS;
+        PUSHMARK(SP);
+
+	/*
+	 * Note: ClientUser::Diff() is not invoked by the server unless
+	 *	the MD5 sum of the client file differs from that of the
+	 *	server file, so the check below is probably redundant. It's
+	 *	included here in case this behaviour varies across server
+	 *	versions (past and future).
+	 */
+
+        int differs = f1->Compare( f2, e );
+
+        XPUSHs( perlUI );
+        XPUSHs( sv_2mortal( newSVpv( f1->Name(), 0 ) ) );
+        XPUSHs( sv_2mortal( newSVpv( f2->Name(), 0 ) ) );
+        XPUSHs( sv_2mortal( newSVpv( diffFlags, 0 ) ) );
+        XPUSHs( sv_2mortal( newSViv( differs ) ) );
+        PUTBACK;
+
+        PERL_CALL_METHOD( "Diff", G_VOID );
+
+        // Clean up stack for return
+        SPAGAIN;
+        PUTBACK;
+        FREETMPS;
+        LEAVE;
+}
+
+
 /*
  * Convert a dictionary to a hash. Numbered elements are converted
  * into an array member of the hash.
  */
 
 void
-DictToHash( StrDict *d, HV *hv )
+ClientUserPerl::DictToHash( StrDict *d, HV *hv )
 {
     AV		*av = 0;
     SV		*rv = 0;
@@ -433,7 +476,7 @@ DictToHash( StrDict *d, HV *hv )
     int		i;
     int		seq;
     StrBuf	key;
-    StrPtr	var, val;
+    StrRef	var, val;
     StrPtr	*data = d->GetVar( "data" );
 
     for( i = 0; d->GetVar( i, var, val ); i++ )
@@ -449,7 +492,7 @@ DictToHash( StrDict *d, HV *hv )
  */
 
 void
-SplitKey( const StrPtr *key, StrBuf &base, StrBuf &index )
+ClientUserPerl::SplitKey( const StrPtr *key, StrBuf &base, StrBuf &index )
 {
     int i = 0;
 
@@ -472,19 +515,28 @@ SplitKey( const StrPtr *key, StrBuf &base, StrBuf &index )
  */
 
 void
-InsertItem( HV *hv, const StrPtr *var, const StrPtr *val )
+ClientUserPerl::InsertItem( HV *hv, const StrPtr *var, const StrPtr *val )
 {
     SV		**svp = 0;
     AV		*av = 0;
     StrBuf	base, index;
     StrRef	comma( "," );
 
+    if ( debug )
+	printf( "\tInserting key %s, value %s \n", var->Text(), val->Text() );
+
     SplitKey( var, base, index );
+
+    if ( debug )
+	printf( "\t\tbase=%s, index=%s\n", base.Text(), index.Text() );
+
 
     // If there's no index, then we insert into the top level hash 
     // and we're out easy
     if ( index == "" )
     {
+	if ( debug )
+	    printf( "\tCreating new scalar hash member %s\n", base.Text() );
 	hv_store( hv, base.Text(), base.Length(), 
 	     newSVpv( val->Text(), val->Length() ), 0 );
 	return;
@@ -496,6 +548,9 @@ InsertItem( HV *hv, const StrPtr *var, const StrPtr *val )
     svp = hv_fetch( hv, base.Text(), base.Length(), 0 );
     if ( ! svp ) 
     {
+	if ( debug )
+	    printf( "\tCreating new array hash member %s\n", base.Text() );
+
 	av = newAV();
 	hv_store( hv, base.Text(), base.Length(), newRV( (SV*)av) ,0 );
     }
@@ -516,6 +571,9 @@ InsertItem( HV *hv, const StrPtr *var, const StrPtr *val )
     // The index may be a simple digit, or it could be a comma separated
     // list of digits. For each "level" in the index, we need a containing
     // AV and an HV inside it.
+    if ( debug )
+	printf( "\tFinding correct index level...\n" );
+
     for( const char *c = 0 ; c = index.Contains( comma ); )
     {
 	StrBuf	level;
@@ -526,6 +584,9 @@ InsertItem( HV *hv, const StrPtr *var, const StrPtr *val )
 	// under the current av. If the level is "0", then we create a new
 	// one, otherwise we just pop the most recent AV off the parent
 	
+	if ( debug )
+	    printf( "\t\tgoing down...\n" );
+
 	svp = av_fetch( av, level.Atoi(), 0 );
 	if ( ! svp )
 	{
@@ -550,12 +611,15 @@ InsertItem( HV *hv, const StrPtr *var, const StrPtr *val )
 	    av = (AV *) SvRV( *svp );
 	}
     }
+    if ( debug )
+	printf( "\tInserting value %s\n", val->Text() );
+
     av_push( av, newSVpv( val->Text(), 0 ) );
 }
 
 
 void
-HashToForm( HV *hv, StrBuf *b )
+ClientUserPerl::HashToForm( HV *hv, StrBuf *b )
 {
     SV	**t = hv_fetch( hv, "specdef", 7, 0 );
     SV	*specstr = *t;
@@ -592,7 +656,7 @@ HashToForm( HV *hv, StrBuf *b )
 // Flatten array elements in a hash into something Perforce can parse.
 
 HV * 
-FlattenHash( HV *hv )
+ClientUserPerl::FlattenHash( HV *hv )
 {
     HV 		*fl;
     SV		*val;

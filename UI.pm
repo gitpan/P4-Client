@@ -141,6 +141,30 @@ sub Prompt($)
 	return <>;
 }
 
+
+#
+# Function to diff two files. This default implementation does nothing of
+# great use. Users should consider using the Algorithm::Diff module to get
+# real diff listings.
+#
+sub Diff($$$$)
+{
+    my $self 		= shift;
+    my $f1		= shift;
+    my $f2		= shift;
+    my $diffFlags	= shift;
+    my $differ		= shift;
+
+    if ( $differ )
+    {
+	print( "$f1 and $f2 differ\n" );
+    }
+    else
+    {
+	print( "$f1 and $f2 are the same\n" );
+    }
+}
+
 1;
 
 __END__
@@ -232,11 +256,17 @@ derive a subclass from P4::UI and override the appropriate methods.
 
 	Prints $length bytes of $text on STDOUT
 
-
 =item C<Prompt( $prompt )>
 
 	Prints the prompt string $prompt and then reads a line
 	of input from the user returning the input line.
+
+=item C<Diff( $f1, $f2, $flags, $differ )>
+
+	Diff two files. The default implementation of this method
+	does nothing of any great use. It's intended to be overridden
+	in subclasses.
+	
 
 =back
 

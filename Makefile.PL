@@ -40,7 +40,7 @@ sub config_sub
 	# First warn them about potential build problems
 	print <<EOF;
 
-Warning: This extension uses C++ and may require that you use the C++ 
+Warning: This extension uses C++ and requires that you use the C++ 
 	 compiler to compile the XSUB file ( normally just a C compiler
 	 is required ). 
 
@@ -51,6 +51,8 @@ Warning: This extension uses C++ and may require that you use the C++
 	    platform ( see the Perforce API documentation for more info )
 
 	 2. That the correct compilers are being used.
+
+	 3. That you're using the correct build of the Perforce API. 
 
 	 See hints/linux.pl to see how it should be done.
 

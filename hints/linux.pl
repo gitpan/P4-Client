@@ -24,3 +24,10 @@
 $self->{CC} 		= "c++";
 $self->{LD} 		= "c++";
 $self->{DEFINE} 	.= " -DOS_LINUX -Dconst_char='char'";
+
+# Some Perl builds - notably ActiveState, but also some Red Hat ones use very
+# restrictive preprocessor settings which are no good to us. So, just to be
+# on the safe side, we'll also add in what we need here.
+
+$self->{DEFINE}		.= " -D_BSD_SOURCE -D_SVID_SOURCE";
+

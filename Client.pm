@@ -33,10 +33,39 @@ use vars qw( $VERSION @ISA @EXPORT @EXPORT_OK $AUTOLOAD );
 @EXPORT_OK = qw( );
 @EXPORT = qw( );
 
-$VERSION = '1.1084';
+$VERSION = '1.1980';
 
 bootstrap P4::Client $VERSION;
 
+
+# Get/Set Debug level. 0 = off, > 0 = on. Without an argument it returns
+# the current debug level.
+
+sub DebugLevel
+{
+    my $self = shift;
+    $self->{ "Debug" } = shift if ( @_ );
+    $self->{ "Debug" };
+}
+
+
+# Change the current working directory. Returns undef on failure.
+sub SetCwd
+{
+    my $self = shift;
+    my $cwd = shift;
+
+    # First we chdir to the dir if it exists. If successful, then we
+    # update the PWD environment variable (if defined) and call the
+    # API equivalent function, now named _SetCwd()
+    return undef unless chdir( $cwd );
+    $ENV{ "PWD" } = $cwd if ( defined( $ENV{ "PWD" } ) );
+    $self->_SetCwd( $cwd );
+    return $cwd;
+}
+
+
+    
 # Makes the Perforce commands usable as methods on the object for
 # cleaner syntax. If it's not a valid method, you'll find out when
 # Perforce recommends you read the help.
@@ -183,7 +212,10 @@ Perforce conventions. i.e.
 =item C<Client::SetCwd( $path )>
 
 Sets the current working directory for the client. This should
-be called after the Init() and before the Run().
+be called after the Init() and before calling Run(). Note that this
+method does actually change your working directory (using chdir), and
+will also update the PWD environment variable (if defined) to reflect 
+the change.
 
 =item C<Client::SetPassword( $password )>
 
@@ -231,6 +263,21 @@ Set your Perforce username. Defaults to:
 =item 2. Value from C<$ENV{P4USER}>
 
 =item 3. OS username
+
+=back
+
+=item C<Client::DebugLevel( [level] )>
+
+Get/Set the debug level for the given client. Passing a value of zero 
+disables debugging, whilst a value of 1 enables it. Default is off.
+
+For example:
+
+=over 4
+
+C<< $client->DebugLevel( 1 ) >>
+C<< $client->DebugLevel( 0 ) >>
+C<< print( "Debug level = ", $client->DebugLevel(), "\n" ) >>
 
 =back
 

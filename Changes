@@ -1,4 +1,50 @@
 Revision history for Perl extension P4::Client.
+1.1980 Mon Jul 29 2002
+	- Port to ActivePerl > 623. Convert all fprintf's to just plain old
+	  printf to avoid PerlIO mess. Include math.h early on Win32 to 
+	  prevent it being included with C++ linkage.
+
+1.1976 Thu Jul 25 2002
+	- Add support for ClientUser::Diff() to P4-Client. Thanks to
+	  Wilson Snyder (wsnyder@wsnyder.org).
+
+1.1894 Mon Jun 17 2002
+	- Fix bug introduced in 1.1711. Thanks to Jon Bjornstad. 
+
+1.1711 Fri Apr 26 2002
+	- Make P4::Client::SetCwd() both change the working directory, and
+	  update the PWD environment variable.  This makes sure that
+	  P4CONFIG files in or above the target directory will be correctly
+	  loaded.
+
+1.1692 Wed Apr 24 2002
+	- Explicitly add -D_BSD_SOURCE and -D_SVID_SOURCE to build on
+	  Linux as some ActiveState and Red Hat builds inexplicably omit
+	  them. 
+
+1.1615 Wed Apr 03 2002
+	- Add debugging support to the ClientUserPerl class so that 
+	  we can see what's going on during tagged output parsing.
+
+1.1546 Fri Mar 15 2002
+	- Fix to yesterdays release. Two of the debugging statements added
+	  yesterday were not protected by conditions. This release corrects
+	  that behaviour.
+
+1.1542 Thu Mar 14 2002
+	- Correct error message in Client.xs which still referred to old
+	  ClientApi class. Now uses the correct name "P4::Client::Run"
+
+	- Made debugging available at run time, not just compile time. New 
+	  method DebugLevel() added to allow users to get/set the debug level. 
+	  Anything non-zero enables debug output which goes to stdout.
+
+1.1515  Wed Mar 06 2002
+	- Bug fix. Make sure that perl header files are included with
+	  C linkage, not default of C++. This caused problems on some
+	  platforms with the redefinition of the Perl_malloc() etc.
+	  functions with different linkage.
+
 1.1084	Fri Nov 16 2001
 	- Fix memory management in tagged mode. Reference counts
 	  were not being incremented when converting the structured

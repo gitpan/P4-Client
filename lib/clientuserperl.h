@@ -32,7 +32,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 class ClientUserPerl : public ClientUser
 {
     public:
-			ClientUserPerl( SV * perlUI ){ this->perlUI = perlUI; }
+			ClientUserPerl( SV * perlUI );
+
 	virtual void	ErrorPause( char *errBuf, Error *e );
 	virtual void 	HandleError( Error *err );
 	virtual void	InputData( StrBuf *strbuf, Error *e );
@@ -43,8 +44,21 @@ class ClientUserPerl : public ClientUser
 	virtual void	Prompt( const StrPtr &msg, StrBuf &rsp, 
 				int noEcho, Error *e );
 	virtual void	Edit( FileSys *f1, Error *e );
+	virtual void	Diff( FileSys *f1, FileSys *f2, int doPage,
+	       			char *diffFlags, Error *e );
+
+		void	DebugLevel( int d ) { debug = d; }
+
+    private:
+		void 	DictToHash( StrDict *d, HV *hv );
+		void	SplitKey( const StrPtr *key, StrBuf &base, StrBuf &index );
+		void	InsertItem( HV *hv, const StrPtr *var, const StrPtr *val );
+		void	HashToForm( HV *hv, StrBuf *b );
+		HV *	FlattenHash( HV *hv );
+
     private:
 	SV*		perlUI;
+	int		debug;
 
 };
 

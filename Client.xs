@@ -23,10 +23,24 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+/*
+ * Include math.h here because it's included by some Perl headers and on
+ * Win32 it must be included with C++ linkage. Including it here prevents it
+ * from being reincluded later when we include the Perl headers with C linkage.
+ */
+#ifdef OS_NT
+#  include <math.h>
+#endif
+
 #include "clientapi.h"
+
+/* When including Perl headers, make sure the linkage is C, not C++ */
+extern "C" 
+{
 #include "EXTERN.h"
 #include "perl.h"
 #include "XSUB.h"
+}
 
 #ifdef Error
 // Defined by older versions of Perl to be Perl_Error
@@ -102,6 +116,28 @@ static ClientApi *ExtractClient( SV *obj )
 }
 
 
+/*
+ * Local function to check if debug is enabled on a P4::Client object
+ */
+static int DebugLevel( SV *obj )
+{
+	SV	**tmp;
+	if (!(sv_isobject((SV*)obj) && sv_derived_from((SV*)obj,"P4::Client")))
+	{
+	    warn("Not a P4::Client object!" );
+	    return 0;
+	}
+	if ( ! SvROK( obj ) )
+	{
+	    warn( "Can't dereference object!!!" );
+	    return 0;
+	}
+	tmp = hv_fetch( (HV *)SvRV(obj), "Debug", 5, 0 );
+	if ( ! tmp ) return 0;
+	return SvIV( *tmp );
+}
+
+
 MODULE = P4::Client		PACKAGE = P4::Client
 
 SV *
@@ -139,6 +175,10 @@ new( CLASS )
 	    /* Now put a flag in the hash for Init/Final testing */
 	    tmp = newSViv( 0 );
 	    hv_store( myself, "InitCount", 9, tmp, 0 );
+
+	    /* Now add the debug flag */
+	    tmp = newSViv( 0 );
+	    hv_store( myself, "Debug", 5, tmp, 0 );
 
 	    /* Return a blessed reference to the hash */
 	    RETVAL = newRV_noinc( (SV * )myself );
@@ -351,6 +391,8 @@ Run( THIS, uiref, cmd, ... )
 	    ClientUserPerl	*ui = NULL;
 
 	CODE:
+	    debug = DebugLevel( THIS );
+
 	    if ( ! ExtractData( THIS, &e, &c, &count ) )
 	    {
 		warn("Not a P4::Client object" );
@@ -378,6 +420,13 @@ Run( THIS, uiref, cmd, ... )
 		XSRETURN_UNDEF;
 	    };
 	
+	    ui->DebugLevel( debug );
+
+	    if ( debug )
+		printf( "[P4::Client::Run] Running a \"p4 %s\" with %d args\n", 
+			SvPV( cmd, PL_na ),
+			items - va_start );
+
 	    if ( items > va_start )
 	    {
 		argc = items - va_start;
@@ -390,6 +439,8 @@ Run( THIS, uiref, cmd, ... )
 		    {
 			currarg = SvPV( ST(stindex), len );
 			cmdargs[argindex] =  currarg ;
+			if ( debug )
+			    printf( "\tArg[ %d ] = %s\n", argindex, currarg );
 		    }
 		    else if ( SvIOK( ST(stindex) ) )
 		    {
@@ -404,13 +455,17 @@ Run( THIS, uiref, cmd, ... )
 			sv = sv_2mortal(newSVpv( buf, 0 ));
 			currarg = SvPV( sv, len );
 			cmdargs[argindex] = currarg;
+			if ( debug )
+			    printf( "\tArg[ %d ] = %s\n", argindex, currarg );
 		    }
 		    else
 		    {
 			/*
 		         * Can't handle other arg types
 		         */
-		        croak( "Invalid argument to ClientApi::Run" );
+			printf( "\tArg[ %d ] unknown type %d\n", argindex, 
+				SvTYPE( ST(stindex) ) );
+		        die( "Invalid argument to P4::Client::Run" );
 		    }
 		}
 	    }
@@ -421,7 +476,7 @@ Run( THIS, uiref, cmd, ... )
 	    {
 	        for ( int i = 0; i < items - va_start; i++ )
 	        {
-		    printf("[ClientApi::Run] Arg[%d] = %s\n", i, cmdargs[i] );
+		    printf("[P4::Client::Run] Arg[%d] = %s\n", i, cmdargs[i] );
 	        }
 	    }
 	    c->SetArgv( items - va_start, cmdargs );
@@ -446,7 +501,7 @@ SetClient( THIS, clientName )
 
 
 void
-SetCwd( THIS, cwd )
+_SetCwd( THIS, cwd )
 	SV	*THIS
 	char *cwd
 
