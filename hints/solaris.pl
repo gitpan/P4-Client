@@ -1,4 +1,4 @@
-# Copyright (c) 1997-2001, Perforce Software, Inc.  All rights reserved.
+# Copyright (c) 1997-2004, Perforce Software, Inc.  All rights reserved.
 # 
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
@@ -33,11 +33,11 @@ if ( $osver eq "5.5" )
     $self->{DEFINE} .= " -DOS_SOLARIS25 ";
     unshift( @{ $self->{LIBS} },  "/usr/ucblib/libucb.a" );
 }
-elsif ( $osver = "5.6" )
+elsif ( $osver eq "5.6" )
 {
     $self->{DEFINE} .= " -DOS_SOLARIS26 ";
 }
-elsif ( $osver eq "5.7" )
+elsif ( $osver =~ /5.(\d+)/ )
 {
-    $self->{DEFINE} .= " -DOS_SOLARIS27 -Dconst_char='const char'";
+    $self->{DEFINE} .= " -DOS_SOLARIS2$1 -Dconst_char='const char'";
 }

@@ -1,4 +1,4 @@
-# Copyright (c) 1997-2001, Perforce Software, Inc.  All rights reserved.
+# Copyright (c) 1997-2004, Perforce Software, Inc.  All rights reserved.
 # 
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
@@ -21,6 +21,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 package P4::UI;
+use Config;
 use strict;
 use vars qw( @ISA @EXPORT @EXPORT_OK );
 
@@ -36,7 +37,7 @@ require Exporter;
 sub new
 {
 	my $class = shift;
-	my $self = {};		# Empty for now
+	my $self = { "binmode" => 0 };
 	bless( $self, $class );
 	return $self;
 }
@@ -132,6 +133,23 @@ sub OutputText($$)
 	printf( "%*s", $len, $text );
 }
 
+# Write a binary buffer to stdout. See clientuser.cc in the Perforce
+# API for the roots of this implementation. 
+sub OutputBinary($$)
+{
+    my ($self, $data, $len ) = @_;
+
+    if ( $Config{ "osname" } == "MSWin32" )
+    {
+	if ( $self->{ "binmode" } == !$len )
+	{
+	    $self->{ "binmode" } = !(!$len);
+	    binmode( STDOUT, $self->{ "binmode" } ? ":raw" : ":crlf" );
+	}
+    }
+
+    syswrite( STDOUT, $data, $len );
+}
 
 # Prompt the user for input
 sub Prompt($)
@@ -278,7 +296,7 @@ derive a subclass from P4::UI and override the appropriate methods.
 
 =head1 LICENCE
 
-Copyright (c) 1997-2001, Perforce Software, Inc.  All rights reserved.
+Copyright (c) 1997-2004, Perforce Software, Inc.  All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:

@@ -1,4 +1,26 @@
 Revision history for Perl extension P4::Client.
+2.4319 Wed Jun 09 2004
+
+      - Porting change for Cygwin. Update hints file to support the use of
+        gcc3 to build P4Perl on Cygwin. This requires the 2003.2 Cygwin
+	API. Thanks to Jeremy Bopp.
+        
+2.4259 Wed Apr 07 2004
+
+      - Porting change for Solaris 8/9 and later. Improved hints file to make
+        sure that const_char gets defined as "const char" not "char".
+
+2.3552 Wed Aug 06 2003
+
+      - Add support for OutputBinary to P4::UI class so we can support
+        "p4 print" of binary files or text files on clients with non-native
+	line termination
+
+2.3540 Tue Aug 05 2003
+
+      - Add hints file for Cygwin build contributed by Nathan Royer
+	<nroyer@sirf.com>. No functional change
+
 2.2596 Tue Jan 14 2003
 
       - Allow form parsing to accept forms deliberately initialised with

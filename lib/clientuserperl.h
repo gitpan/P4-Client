@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 1997-2001, Perforce Software, Inc.  All rights reserved.
+Copyright (c) 1997-2004, Perforce Software, Inc.  All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -41,6 +41,7 @@ class ClientUserPerl : public ClientUser
 	virtual void	OutputInfo( char level, const_char *data );
 	virtual void	OutputStat( StrDict *varList );
 	virtual void 	OutputText( const_char *data, int length );
+	virtual void 	OutputBinary( const_char *data, int length );
 	virtual void	Prompt( const StrPtr &msg, StrBuf &rsp, 
 				int noEcho, Error *e );
 	virtual void	Edit( FileSys *f1, Error *e );

@@ -1,4 +1,4 @@
-# Copyright (c) 1997-2001, Perforce Software, Inc.  All rights reserved.
+# Copyright (c) 1997-2004, Perforce Software, Inc.  All rights reserved.
 # 
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
@@ -33,7 +33,7 @@ use vars qw( $VERSION @ISA @EXPORT @EXPORT_OK $AUTOLOAD );
 @EXPORT_OK = qw( );
 @EXPORT = qw( );
 
-$VERSION = '2.2596';
+$VERSION = '2.4319';
 
 bootstrap P4::Client $VERSION;
 
@@ -334,7 +334,7 @@ than and including 99.2.
 
 =head1 LICENCE
 
-Copyright (c) 1997-2001, Perforce Software, Inc.  All rights reserved.
+Copyright (c) 1997-2004, Perforce Software, Inc.  All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:

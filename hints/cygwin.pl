@@ -21,21 +21,18 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-TYPEMAP
-ClientUserPerl *		O_CUP
+ print <<EOS;
 
+ I see you're running Cygwin. To build P4Perl for Cygwin, you'll need a gcc3
+ build of the Perforce API. The first such build was in the 2003.2 release
+ and you can download that from:
+ 
+ http://www.perforce.com/downloads/perforce/r03.2/bin.cygwinx86/p4api.tar
 
-OUTPUT
-O_CUP
-	sv_setref_pv( $arg, "P4::ClientUserPerl", (void *)$var );
+EOS
 
-
-INPUT
-O_CUP
-	if ( sv_isobject( $arg) && ( SvTYPE( SvRV( $arg) ) == SVt_PVMG ))
-		$var = ($type)SvIV( (SV*) SvRV( $arg ) );
-	else 
-	{
-		warn( \"${Package}::$func_name() -- $var is not a blessed reference\" );
-		XSRETURN_UNDEF;
-	}
+ $self->{CC} 		= "g++";
+ $self->{CCFLAGS}    = "-x c++";
+ $self->{LD} 		= "g++";
+ $self->{LDDLFLAGS}    = "-shared";
+ $self->{DEFINE} 	.= " -DOS_CYGWIN -Dconst_char='char'";

@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 1997-2001, Perforce Software, Inc.  All rights reserved.
+Copyright (c) 1997-2004, Perforce Software, Inc.  All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -381,6 +381,30 @@ ClientUserPerl::OutputText( const_char *data, int length )
 	PUTBACK;
 
 	PERL_CALL_METHOD( "OutputText", G_VOID );
+
+	// Clean up stack for return
+	SPAGAIN;
+	PUTBACK;
+	FREETMPS;
+	LEAVE;
+}
+
+void
+ClientUserPerl::OutputBinary( const_char *data, int length )
+{
+	dTHX;
+	dSP;
+	ENTER;
+	SAVETMPS;
+	PUSHMARK(SP);
+
+	// Put args on stack
+	XPUSHs( perlUI );
+	XPUSHs( sv_2mortal( newSVpv( (char *)data, 0 ) ) );
+	XPUSHs( sv_2mortal( newSViv( length ) ) );
+	PUTBACK;
+
+	PERL_CALL_METHOD( "OutputBinary", G_VOID );
 
 	// Clean up stack for return
 	SPAGAIN;

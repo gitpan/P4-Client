@@ -13,6 +13,7 @@ lib/clientuserperl.cc
 lib/clientuserperl.h
 lib/Makefile.PL
 lib/hints/mswin32.pl
+hints/cygwin.pl
 hints/linux.pl
 hints/freebsd.pl
 hints/mswin32.pl
