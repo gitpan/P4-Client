@@ -50,7 +50,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 # define dTHX 	1
 #endif
 
-void HashToForm( HV *hv, StrBuf *b );
+static void HashToForm( HV *hv, StrBuf *b );
+static void DictToHash( StrDict *d, HV *hv );
+static int GetBase( const StrPtr &key, StrBuf &base );
+static HV * FlattenHash( HV *hv );
 
 void
 ClientUserPerl::Edit( FileSys *f1, Error *e )
@@ -281,8 +284,6 @@ ClientUserPerl::OutputStat( StrDict *varList )
 {
 	HV		*hv;
 	SV		*href;
-	int		i;
-	StrBuf		msg;
 	StrPtr		var, val;
 	StrDict		*input = varList;
 	StrPtr		*data = varList->GetVar( "data" );
@@ -319,23 +320,12 @@ ClientUserPerl::OutputStat( StrDict *varList )
 		HandleError( &e );
 		return;
 	    }
-
-	    // Store the specdef inside the hash. We'll need it if they
-	    // are trying to do a submit later.
-	    hv_store( hv, "specdef", 7, newSVpv( spec->Text(), 0 ), 0 );
-
 	    input = specData.Dict();
+	    input->SetVar( "specdef", spec->Text() );
 	}
 
 	// Now store the rest
-	for( i = 0; input->GetVar( i, var, val ); i++ )
-	{
-	    if( var == "func" ) continue;
-	    if ( var == "specdef" && ! data ) continue;
-
-	    hv_store( hv, var.Text(), var.Length(), 
-	    	 newSVpv( val.Text(),0) ,0 );
-	}
+	DictToHash( input, hv );
 
 	// Now call the perl sub and pass a ref to the HV as its arg
 	href = newRV( (SV *)hv );
@@ -428,18 +418,110 @@ ClientUserPerl::Prompt( const StrPtr &msg, StrBuf &rsp,
 	LEAVE;
 }
 
+/*
+ * Convert a dictionary to a hash. Numbered elements are converted
+ * into an array member of the hash.
+ */
+
+void
+DictToHash( StrDict *d, HV *hv )
+{
+    AV		*av = 0;
+    SV		*rv = 0;
+    SV		**svp = 0;
+    int		i;
+    int		seq;
+    StrBuf	key;
+    StrPtr	var, val;
+    StrPtr	*data = d->GetVar( "data" );
+
+    for( i = 0; d->GetVar( i, var, val ); i++ )
+    {
+	if( var == "func" ) continue;
+
+	seq = GetBase ( var, key );
+	if ( seq < 0 )
+	{
+	    hv_store( hv, var.Text(), var.Length(), 
+		 newSVpv( val.Text(), val.Length() ), 0 );
+	}
+	else
+	{
+	    if ( seq == 0 )
+	    {
+		av = newAV();
+		hv_store( hv, key.Text(), key.Length(), newRV( (SV*)av) ,0 );
+	    }
+
+	    svp = hv_fetch( hv, key.Text(), key.Length(), 0 );
+	    if ( ! svp ) 
+	    {
+		StrBuf	msg;
+		msg.Set( "Key (" );
+		msg.Append( key.Text() );
+		msg.Append( ") not found in hash!" );
+		warn( msg.Text() );
+		continue;
+	    }
+
+	    if ( ! SvROK( *svp ) )
+	    {
+		StrBuf	msg;
+		msg.Set( "Key (" );
+		msg.Append( key.Text() );
+		msg.Append( ") not a reference!" );
+		warn( msg.Text() );
+		continue;
+	    }
+
+	    av = (AV *) SvRV( *svp );
+	    av_store( av, seq, newSVpv( val.Text(), 0) );
+	}
+    }
+}
+
+/*
+ * Given a key name, work out its base. i.e. for View0, View1, View10 etc.
+ * the base is "View". Returns the sequence number or -1 if there is none.
+ */
+
+int
+GetBase( const StrPtr &key, StrBuf &base )
+{
+    int i = 0;
+
+    base = key;
+    for ( i = 0; i < key.Length(); i++ )
+	if ( isdigit( key[ i ] ) )
+	    base.Set( key.Text(), i );
+
+    if ( base == key ) return -1;
+
+    StrBuf seq;
+    seq.Set( key.Text() + i - 1 );
+
+    return seq.Atoi();
+}
+
 
 void
 HashToForm( HV *hv, StrBuf *b )
 {
     SV	**t = hv_fetch( hv, "specdef", 7, 0 );
     SV	*specstr = *t;
+    HV	*flatHv = 0;
 
     if ( ! SvPOK( specstr ) )
     {
 	warn( "specdef member is not a string" );
 	return;
     }
+
+    /*
+     * Also need now to go through the hash looking for AV elements
+     * as they need to be flattened before parsing. Yuk!
+     */
+    flatHv = FlattenHash( hv );
 
     SpecDataTable	specData;
     Spec		s( SvPV( specstr, PL_na ), "" );
@@ -448,11 +530,49 @@ HashToForm( HV *hv, StrBuf *b )
     SV		*val;
     I32		klen;
 
-    for ( hv_iterinit( hv ); val = hv_iternextsv( hv, &key, &klen ); )
+    for ( hv_iterinit( flatHv ); val = hv_iternextsv( flatHv, &key, &klen ); )
     {
 	if ( !SvPOK( val ) ) continue;
 	specData.Dict()->SetVar( key, SvPV( val, PL_na ) );
     }
 
     s.Format( &specData, b );
+}
+
+// Flatten array elements in a hash into something Perforce can parse.
+
+HV * 
+FlattenHash( HV *hv )
+{
+    HV 		*fl;
+    SV		*val;
+    char	*key;
+    I32		klen;
+
+    fl = (HV *)sv_2mortal( (SV *)newHV() );
+    for ( hv_iterinit( hv ); val = hv_iternextsv( hv, &key, &klen ); )
+    {
+	if ( SvROK( val ) && ( SvTYPE( SvRV( val ) ) == SVt_PVAV ) )
+	{
+	    // Flatten this array by constructing keys from the parent
+	    // hash key and the array index
+	    AV	*av = (AV *)SvRV( val );
+	    for ( int i = 0; i <= av_len( av ); i++ )
+	    {
+		StrBuf	newKey;
+
+		SV	**elem = av_fetch( av, i, 0 );
+		newKey.Set( key );
+		newKey << i;
+
+		hv_store( fl, newKey.Text(), newKey.Length(), *elem, 0 );
+	    }
+	}
+	else
+	{
+	    // Just store the element as is
+	    hv_store( fl, key, klen, val, 0 );
+	}
+    }
+    return fl;
 }

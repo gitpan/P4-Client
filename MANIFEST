@@ -16,4 +16,5 @@ lib/hints/mswin32.pl
 hints/linux.pl
 hints/freebsd.pl
 hints/mswin32.pl
+hints/solaris.pl
 typemap

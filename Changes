@@ -1,5 +1,27 @@
 Revision history for Perl extension P4::Client.
-Head Rev - not yet released
+1.977	Mon Oct 22 2001
+	- Fix broken form parsing. specdef was not getting saved so 
+	  forms could not be reconstructed from a hash. Also added
+	  support for reconstructing spec's from multi-line form elements
+	  stored in Perl arrays.
+
+1.976	Mon Oct 22 2001
+	- Fix for bug in multi-line form element handling reported by
+	  Michael Keirnan <mgk@atg.com>
+
+1.966	Fri Oct 19 2001
+	- Fix dodgy UI.pm in previous release. 
+
+1.964	Fri Oct 19 2001
+	- Multi-line elements within forms are now presented as arrays
+	  within the hashref returned to the caller. So instead of
+	  $href->{ View2 }, you now use $href->{ View }->[ 2 ]. Yes, it's
+	  more verbose, but it means you can grab an array of related 
+	  elements.
+	- Added Solaris support contributed by Jeremy Russell 
+	  <jrussel@reshape.com> with a few tweaks.
+
+1.931   Fri Oct 05 2001 (busy day)
 	- Support for form parsing when using the tag and specstring 
 	  protocol options. When both these options are in effect, the
 	  data is returned to the caller as a hash containing the parsed

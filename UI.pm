@@ -105,8 +105,19 @@ sub OutputError($)
 sub OutputStat
 {
 	my ($self, $hash ) = @_;
+
 	foreach my $key ( sort keys %$hash )
 	{
+	    if ( ref( $hash->{ $key } ) )
+	    {
+		# Nested element
+		print( "... $key\n" );
+		foreach my $item ( @{ $hash->{ $key } } )
+		{
+		    print( "... ... $item\n" );
+		}
+	    }
+
 	    print("... $key ", $hash->{ $key }, "\n" );
 	}
 	print("\n");
@@ -209,7 +220,13 @@ derive a subclass from P4::UI and override the appropriate methods.
 =item C<OutputStat( $hashref )>
 
 	Print the output of a command in tagged format. The tagged
-	data is passed as a hash reference for ease of use.
+	data is passed as a hash reference for ease of use. Multi 
+	line fields (such as mappings) are presented as array
+	references within the hash. i.e. in a clientspec, the 
+	View field in the form is normally transmitted by Perforce 
+	as a sequence of fields: "View0", "View1", etc. P4::UI gets
+	these as a single "View" member of the hash which is itself 
+	an array reference containing the view records in order.
 
 =item C<OutputText( $text, $length )>
 
