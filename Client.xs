@@ -322,7 +322,7 @@ Init( THIS )
 	    e->Clear();
 	    c->Init( e );
 	    RETVAL = newSViv( ! e->Test() );
-	    if ( RETVAL )
+	    if ( ! e->Test() )
 		sv_setiv( count, SvIV( count ) + 1 );
 
 	OUTPUT:

@@ -1,4 +1,19 @@
 Revision history for Perl extension P4::Client.
+1.1084	Fri Nov 16 2001
+	- Fix memory management in tagged mode. Reference counts
+	  were not being incremented when converting the structured
+	  hashes into a Perforce form for use as input to a subsequent
+	  command.
+
+1.1050  Wed Nov 07 2001
+	- Fix for complex tagged output which contains more than one level
+	  of nested data. e.g. "how0,0", "how0,1" etc. in the output of
+	  "p4 filelog". P4-Client can now handle any number of levels of 
+	  nested data in tagged responses from the Perforce server. It does
+	  not however accept such complex structures as input for conversion
+	  into Perforce forms. I think that's OK as no Perforce forms
+	  contain nested structures and are unlikely to.
+
 1.977	Mon Oct 22 2001
 	- Fix broken form parsing. specdef was not getting saved so 
 	  forms could not be reconstructed from a hash. Also added

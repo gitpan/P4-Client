@@ -52,7 +52,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 static void HashToForm( HV *hv, StrBuf *b );
 static void DictToHash( StrDict *d, HV *hv );
-static int GetBase( const StrPtr &key, StrBuf &base );
+static void SplitKey( const StrPtr *key, StrBuf &base, StrBuf &index );
+static void InsertItem( HV *hv, const StrPtr *var, const StrPtr *val );
 static HV * FlattenHash( HV *hv );
 
 void
@@ -177,7 +178,7 @@ ClientUserPerl::InputData( StrBuf *strbuf, Error *e )
 	}
 	else if ( SvTYPE( sv ) == SVt_PV )
 	{
-	    strbuf->Set( POPp );
+	    strbuf->Set( SvPV( sv, PL_na ) );
 	}
 	else if ( SvTYPE( sv ) == SVt_PVHV )
 	{
@@ -328,7 +329,7 @@ ClientUserPerl::OutputStat( StrDict *varList )
 	DictToHash( input, hv );
 
 	// Now call the perl sub and pass a ref to the HV as its arg
-	href = newRV( (SV *)hv );
+	href = sv_2mortal( newRV( (SV *)hv ) );
 	XPUSHs( perlUI );
 	XPUSHs( href );
 	PUTBACK;
@@ -438,69 +439,118 @@ DictToHash( StrDict *d, HV *hv )
     for( i = 0; d->GetVar( i, var, val ); i++ )
     {
 	if( var == "func" ) continue;
+	InsertItem( hv, &var, &val );
+    }
+}
 
-	seq = GetBase ( var, key );
-	if ( seq < 0 )
+/*
+ * Split a key into its base name and its index. i.e. for a key "how1,0"
+ * the base name is "how" and they index is "1,0"
+ */
+
+void
+SplitKey( const StrPtr *key, StrBuf &base, StrBuf &index )
+{
+    int i = 0;
+
+    base = *key;
+    index = "";
+    for ( i = 0; i < key->Length(); i++ )
+    {
+	if ( isdigit( (*key)[ i ] ) )
 	{
-	    hv_store( hv, var.Text(), var.Length(), 
-		 newSVpv( val.Text(), val.Length() ), 0 );
-	}
-	else
-	{
-	    if ( seq == 0 )
-	    {
-		av = newAV();
-		hv_store( hv, key.Text(), key.Length(), newRV( (SV*)av) ,0 );
-	    }
-
-	    svp = hv_fetch( hv, key.Text(), key.Length(), 0 );
-	    if ( ! svp ) 
-	    {
-		StrBuf	msg;
-		msg.Set( "Key (" );
-		msg.Append( key.Text() );
-		msg.Append( ") not found in hash!" );
-		warn( msg.Text() );
-		continue;
-	    }
-
-	    if ( ! SvROK( *svp ) )
-	    {
-		StrBuf	msg;
-		msg.Set( "Key (" );
-		msg.Append( key.Text() );
-		msg.Append( ") not a reference!" );
-		warn( msg.Text() );
-		continue;
-	    }
-
-	    av = (AV *) SvRV( *svp );
-	    av_store( av, seq, newSVpv( val.Text(), 0) );
+	    base.Set( key->Text(), i );
+	    index.Set( key->Text() + i );
+	    break;
 	}
     }
 }
 
 /*
- * Given a key name, work out its base. i.e. for View0, View1, View10 etc.
- * the base is "View". Returns the sequence number or -1 if there is none.
+ * Insert an element into the response structure. The element may need to
+ * be inserted into an array nested deeply within the enclosing hash.
  */
 
-int
-GetBase( const StrPtr &key, StrBuf &base )
+void
+InsertItem( HV *hv, const StrPtr *var, const StrPtr *val )
 {
-    int i = 0;
+    SV		**svp = 0;
+    AV		*av = 0;
+    StrBuf	base, index;
+    StrRef	comma( "," );
 
-    base = key;
-    for ( i = 0; i < key.Length(); i++ )
-	if ( isdigit( key[ i ] ) )
-	    base.Set( key.Text(), i );
+    SplitKey( var, base, index );
 
-    if ( base == key ) return -1;
+    // If there's no index, then we insert into the top level hash 
+    // and we're out easy
+    if ( index == "" )
+    {
+	hv_store( hv, base.Text(), base.Length(), 
+	     newSVpv( val->Text(), val->Length() ), 0 );
+	return;
+    }
 
-    StrBuf seq;
-    seq.Set( key.Text() + i - 1 );
+    //
+    // Get or create the parent AV from the hash.
+    //
+    svp = hv_fetch( hv, base.Text(), base.Length(), 0 );
+    if ( ! svp ) 
+    {
+	av = newAV();
+	hv_store( hv, base.Text(), base.Length(), newRV( (SV*)av) ,0 );
+    }
 
-    return seq.Atoi();
+    if ( svp && ! SvROK( *svp ) )
+    {
+	StrBuf	msg;
+	msg.Set( "Key (" );
+	msg.Append( base.Text() );
+	msg.Append( ") not a reference!" );
+	warn( msg.Text() );
+	return;
+    }
+
+    if ( svp && SvROK( *svp ) )
+	av = (AV *) SvRV( *svp );
+
+    // The index may be a simple digit, or it could be a comma separated
+    // list of digits. For each "level" in the index, we need a containing
+    // AV and an HV inside it.
+    for( const char *c = 0 ; c = index.Contains( comma ); )
+    {
+	StrBuf	level;
+	level.Set( index.Text(), c - index.Text() );
+	index.Set( c + 1 );
+
+	// Found another level so we need to get/create a nested AV
+	// under the current av. If the level is "0", then we create a new
+	// one, otherwise we just pop the most recent AV off the parent
+	
+	svp = av_fetch( av, level.Atoi(), 0 );
+	if ( ! svp )
+	{
+	    AV *tav = newAV();
+	    av_store( av, level.Atoi(), newRV( (SV*)tav) );
+	    av = tav;
+	}
+	else
+	{
+	    if ( ! SvROK( *svp ) )
+	    {
+		warn( "Not an array reference." );
+		return;
+	    }
+
+	    if ( SvTYPE( SvRV( *svp ) ) != SVt_PVAV )
+	    {
+		warn( "Not an array reference." );
+		return;
+	    }
+
+	    av = (AV *) SvRV( *svp );
+	}
+    }
+    av_push( av, newSVpv( val->Text(), 0 ) );
 }
 
 
@@ -565,13 +615,14 @@ FlattenHash( HV *hv )
 		newKey.Set( key );
 		newKey << i;
 
-		hv_store( fl, newKey.Text(), newKey.Length(), *elem, 0 );
+		hv_store( fl, newKey.Text(), newKey.Length(), 
+			SvREFCNT_inc(*elem), 0 );
 	    }
 	}
 	else
 	{
 	    // Just store the element as is
-	    hv_store( fl, key, klen, val, 0 );
+	    hv_store( fl, key, klen, SvREFCNT_inc(val), 0 );
 	}
     }
     return fl;
