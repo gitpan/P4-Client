@@ -115,11 +115,10 @@ static ClientApi *ExtractClient( SV *obj )
 	return ( ClientApi *) SvIV( *tmp );
 }
 
-
 /*
- * Local function to check if debug is enabled on a P4::Client object
+ * Local function to check the value of a boolean flag
  */
-static int DebugLevel( SV *obj )
+static int GetFlag( const char *flag, SV *obj )
 {
 	SV	**tmp;
 	if (!(sv_isobject((SV*)obj) && sv_derived_from((SV*)obj,"P4::Client")))
@@ -132,10 +131,28 @@ static int DebugLevel( SV *obj )
 	    warn( "Can't dereference object!!!" );
 	    return 0;
 	}
-	tmp = hv_fetch( (HV *)SvRV(obj), "Debug", 5, 0 );
+	tmp = hv_fetch( (HV *)SvRV(obj), flag, strlen( flag ), 0 );
 	if ( ! tmp ) return 0;
 	return SvIV( *tmp );
 }
+
+/*
+ * Local function to check if debug is enabled on a P4::Client object
+ */
+static int DebugLevel( SV *obj )
+{
+	return GetFlag( "Debug", obj );
+}
+
+
+/*
+ * Local function to test if Perl Diffs are requested on a P4::Client object
+ */
+static int DoPerlDiffs( SV *obj )
+{
+	return GetFlag( "PerlDiffs", obj );
+}
+
 
 
 MODULE = P4::Client		PACKAGE = P4::Client
@@ -175,6 +192,10 @@ new( CLASS )
 	    /* Now put a flag in the hash for Init/Final testing */
 	    tmp = newSViv( 0 );
 	    hv_store( myself, "InitCount", 9, tmp, 0 );
+
+	    /* Now put in a flag for the type of Diff support required */
+	    tmp = newSViv( 0 );
+	    hv_store( myself, "PerlDiffs", 9, tmp, 0 );
 
 	    /* Now add the debug flag */
 	    tmp = newSViv( 0 );
@@ -421,6 +442,7 @@ Run( THIS, uiref, cmd, ... )
 	    };
 	
 	    ui->DebugLevel( debug );
+	    ui->DoPerlDiffs( DoPerlDiffs( THIS ) );
 
 	    if ( debug )
 		printf( "[P4::Client::Run] Running a \"p4 %s\" with %d args\n", 

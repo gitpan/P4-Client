@@ -37,6 +37,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "clientapi.h"
 #include "spec.h"
+#include "diff.h"
 
 /* When including Perl headers, make sure the linkage is C, not C++ */
 
@@ -82,8 +83,9 @@ extern "C"
 
 ClientUserPerl::ClientUserPerl( SV * perlUI )
 { 
-    this->perlUI = perlUI; 
-    debug = 0;
+    this->perlUI 	= perlUI; 
+    debug 		= 0;
+    perlDiffs		= 0;
 }
 
 void
@@ -175,11 +177,15 @@ ClientUserPerl::InputData( StrBuf *strbuf, Error *e )
 	n = PERL_CALL_METHOD( "InputData", G_SCALAR );
 
 	SPAGAIN;
+
 	if ( ! n )
 	{
 	    PUTBACK;
 	    return;
 	}
+
+	if ( debug )
+	    printf( "InputData: Received input from Perl space\n" );
 
 	SV *sv = POPs;
 	HV *hv;
@@ -189,6 +195,8 @@ ClientUserPerl::InputData( StrBuf *strbuf, Error *e )
 	    // We've been passed a reference - hopefully to a hash
 	    hv = (HV *)SvRV( sv );
 	    useHash = 1;
+	    if ( debug )
+		printf( "InputData: Input looks like a hash ref\n" );
 	}
 	else if ( SvTYPE( sv ) == SVt_PV )
 	{
@@ -198,6 +206,8 @@ ClientUserPerl::InputData( StrBuf *strbuf, Error *e )
 	{
 	    hv = (HV *)sv;
 	    useHash = 1;
+	    if ( debug )
+		printf( "InputData: Input is hash.\n" );
 	}
 	else
 	{
@@ -208,22 +218,15 @@ ClientUserPerl::InputData( StrBuf *strbuf, Error *e )
 	{
 
 	    /*
-	     * If the hash contains a "specdef" member, then it contains
+	     * If we've been sent a specdef string by the server we use
 	     * a form. We Format the form into a StrBuf and return that
 	     * to our caller
 	     */
 
-	    SV 	**t = hv_fetch( hv, "specdef", 7, 0 );
-
-	    if ( t ) 
-	    {
-		sv = *t;
+	    if ( varList->GetVar( "specdef" ) )
 		HashToForm( hv, strbuf );
-	    }
 	    else
-	    {
 		warn( "Can't convert hashref into a form. No spec supplied" );
-	    }
 	}
 
 	PUTBACK;
@@ -333,7 +336,6 @@ ClientUserPerl::OutputStat( StrDict *varList )
 		return;
 	    }
 	    input = specData.Dict();
-	    input->SetVar( "specdef", spec->Text() );
 	}
 
 	// Now store the rest
@@ -425,40 +427,107 @@ ClientUserPerl::Prompt( const StrPtr &msg, StrBuf &rsp,
 	LEAVE;
 }
 
+
+/*
+ * Support for capturing the output of "p4 diff". Since the Diff class only
+ * supports writing its output to a FILE object, we write it to a temp file,
+ * and then read that in redirecting it via OutputText() to the client.
+ */
+
 void	
 ClientUserPerl::Diff( FileSys *f1, FileSys *f2, int doPage,
 	       			char *diffFlags, Error *e )
 {
-	dTHX;
-        dSP;
-        ENTER;
-        SAVETMPS;
-        PUSHMARK(SP);
-
-	/*
-	 * Note: ClientUser::Diff() is not invoked by the server unless
-	 *	the MD5 sum of the client file differs from that of the
-	 *	server file, so the check below is probably redundant. It's
-	 *	included here in case this behaviour varies across server
-	 *	versions (past and future).
+    	/*
+	 * If the user has asked to do the diffs in Perl space, then 
+	 * we just defer it to their P4::UI implementation. Otherwise we
+	 * do the honours here and push out the results through the normal
+	 * channels.
 	 */
 
-        int differs = f1->Compare( f2, e );
+	if ( perlDiffs )
+	{
+	    dTHX;
+	    dSP;
+	    ENTER;
+	    SAVETMPS;
+	    PUSHMARK(SP);
 
-        XPUSHs( perlUI );
-        XPUSHs( sv_2mortal( newSVpv( f1->Name(), 0 ) ) );
-        XPUSHs( sv_2mortal( newSVpv( f2->Name(), 0 ) ) );
-        XPUSHs( sv_2mortal( newSVpv( diffFlags, 0 ) ) );
-        XPUSHs( sv_2mortal( newSViv( differs ) ) );
-        PUTBACK;
+	    /*
+	     * Note: ClientUser::Diff() is not invoked by the server unless
+	     *	the MD5 sum of the client file differs from that of the
+	     *	server file, so the check below is probably redundant. It's
+	     *	included here in case this behaviour varies across server
+	     *	versions (past and future).
+	     */
 
-        PERL_CALL_METHOD( "Diff", G_VOID );
+	    int differs = f1->Compare( f2, e );
 
-        // Clean up stack for return
-        SPAGAIN;
-        PUTBACK;
-        FREETMPS;
-        LEAVE;
+	    XPUSHs( perlUI );
+	    XPUSHs( sv_2mortal( newSVpv( f1->Name(), 0 ) ) );
+	    XPUSHs( sv_2mortal( newSVpv( f2->Name(), 0 ) ) );
+	    XPUSHs( sv_2mortal( newSVpv( diffFlags, 0 ) ) );
+	    XPUSHs( sv_2mortal( newSViv( differs ) ) );
+	    PUTBACK;
+
+	    PERL_CALL_METHOD( "Diff", G_VOID );
+
+	    // Clean up stack for return
+	    SPAGAIN;
+	    PUTBACK;
+	    FREETMPS;
+	    LEAVE;
+	    return;
+	}
+
+	/*
+	 * Not doing diffs in Perl space. 
+	 */
+
+	if ( !f1->IsTextual() || !f2->IsTextual() )
+	{
+	    if ( f1->Compare( f2, e ) )
+	    {
+		StrRef	s( "(... files differ ...)" );
+		OutputText( s.Text(), s.Length() );
+	    }
+	    return;
+	}
+
+	// Got two text files to diff. We diff them to a temp file
+	// and then call OutputText() for each line in the file
+
+	FileSys	*f1_bin = FileSys::Create( FST_BINARY );
+	FileSys	*f2_bin = FileSys::Create( FST_BINARY );
+	FileSys *t = FileSys::CreateGlobalTemp( f1->GetType() );
+
+	f1_bin->Set( f1->Name() );
+	f2_bin->Set( f2->Name() );
+
+	{
+	    // In its own block to make sure that the Diff object gets
+	    // deleted before the FileSys objects do.
+#ifndef OS_NEXT
+	    ::
+#endif
+	    Diff   d;
+	    StrBuf b;
+
+	    d.SetInput( f1_bin, f2_bin, diffFlags, e );
+	    if ( ! e->Test() ) d.SetOutput( t->Name(), e );
+	    if ( ! e->Test() ) d.DiffWithFlags( diffFlags );
+	    d.CloseOutput( e );
+
+	    if ( ! e->Test() ) t->Open( FOM_READ, e );
+	    if ( ! e->Test() ) t->ReadWhole( &b, e );
+	    if ( ! e->Test() ) OutputText( b.Text(), b.Length() );
+	}
+
+	delete t;
+	delete f1_bin;
+	delete f2_bin;
+
+	if ( e->Test() ) HandleError( e );
 }
 
 
@@ -621,24 +690,30 @@ ClientUserPerl::InsertItem( HV *hv, const StrPtr *var, const StrPtr *val )
 void
 ClientUserPerl::HashToForm( HV *hv, StrBuf *b )
 {
-    SV	**t = hv_fetch( hv, "specdef", 7, 0 );
-    SV	*specstr = *t;
-    HV	*flatHv = 0;
+    HV		*flatHv = 0;
+    StrPtr	*specdef = 0;
 
-    if ( ! SvPOK( specstr ) )
-    {
-	warn( "specdef member is not a string" );
-	return;
-    }
+    if ( debug )
+	printf( "HashToForm: Converting hash input into a form.\n" );
+
+    specdef = varList->GetVar( "specdef" );
 
     /*
      * Also need now to go through the hash looking for AV elements
      * as they need to be flattened before parsing. Yuk!
      */
-    flatHv = FlattenHash( hv );
+    if ( ! ( flatHv = FlattenHash( hv ) ) )
+    {
+	warn( "Failed to convert Perl hash to Perforce form");
+	return;
+    }
+
+
+    if ( debug )
+	printf( "HashToForm: Flattened hash input.\n" );
 
     SpecDataTable	specData;
-    Spec		s( SvPV( specstr, PL_na ), "" );
+    Spec		s( specdef->Text(), "" );
 
     char	*key;
     SV		*val;
@@ -651,6 +726,10 @@ ClientUserPerl::HashToForm( HV *hv, StrBuf *b )
     }
 
     s.Format( &specData, b );
+
+    if ( debug )
+	printf( "HashToForm: Form looks like this\n%s\n", b->Text() );
+
 }
 
 // Flatten array elements in a hash into something Perforce can parse.
@@ -663,28 +742,80 @@ ClientUserPerl::FlattenHash( HV *hv )
     char	*key;
     I32		klen;
 
+    if ( debug )
+	printf( "FlattenHash: Flattening hash contents\n" );
+
     fl = (HV *)sv_2mortal( (SV *)newHV() );
     for ( hv_iterinit( hv ); val = hv_iternextsv( hv, &key, &klen ); )
     {
-	if ( SvROK( val ) && ( SvTYPE( SvRV( val ) ) == SVt_PVAV ) )
+	if ( SvROK( val ) )
 	{
-	    // Flatten this array by constructing keys from the parent
-	    // hash key and the array index
-	    AV	*av = (AV *)SvRV( val );
-	    for ( int i = 0; i <= av_len( av ); i++ )
+	    /* Objects are not permitted in forms. Like it or lump it */
+
+	    if ( sv_isobject( val ) )
 	    {
-		StrBuf	newKey;
+		StrBuf msg;
 
-		SV	**elem = av_fetch( av, i, 0 );
-		newKey.Set( key );
-		newKey << i;
+		msg << key << " field contains an object. " <<
+			"Perforce forms may not contain Perl objects. " 
+			"Permitted types are strings, numbers and arrays";
 
-		hv_store( fl, newKey.Text(), newKey.Length(), 
-			SvREFCNT_inc(*elem), 0 );
+		warn( msg.Text() );
+		return NULL;
+	    }
+
+	    if ( SvTYPE( SvRV( val ) ) == SVt_PVAV ) 
+	    {
+		if ( debug )
+		    printf( "FlattenHash: Flattening %s array\n", key );
+
+		// Flatten this array by constructing keys from the parent
+		// hash key and the array index
+		AV	*av = (AV *)SvRV( val );
+		for ( int i = 0; i <= av_len( av ); i++ )
+		{
+		    StrBuf	newKey;
+
+		    if ( debug )
+			printf( "Parsing element %d\n", i );
+
+		    SV	**elem = av_fetch( av, i, 0 );
+
+		    if ( ! elem )
+		    {
+			StrBuf	msg;
+			msg << key << " field contains a bizarre array. " <<
+			       "Array elements may only contain strings " <<
+			       "and numbers.";
+
+			warn( msg.Text() );
+			return NULL;
+		    }
+
+		    if ( debug )
+			printf( "Fetched element %d\n", i );
+
+		    newKey.Set( key );
+		    newKey << i;
+
+		    if ( debug )
+			printf( "Formatted element %d( %s )\n", i, newKey.Text() );
+
+
+		    hv_store( fl, newKey.Text(), newKey.Length(), 
+			    SvREFCNT_inc(*elem), 0 );
+
+		    if ( debug )
+			printf( "Stored element %d\n", i );
+
+		}
 	    }
 	}
 	else
 	{
+	    if ( debug )
+		printf( "FlattenHash: Found non-array member %s\n", key );
+
 	    // Just store the element as is
 	    hv_store( fl, key, klen, SvREFCNT_inc(val), 0 );
 	}

@@ -29,7 +29,7 @@
 # Change 1..1 below to 1..last_test_to_print .
 # (It may become useful if the test is moved to ./t subdirectory.)
 
-BEGIN { $| = 1; print "1..5\n"; }
+BEGIN { $| = 1; print "1..6\n"; }
 END {print "not ok 1\n" unless $loaded;}
 use P4::Client;
 use P4::UI;
@@ -79,6 +79,10 @@ sub OutputError
 
 sub OutputStat
 {
+	my $self = shift;
+	my $href = shift;
+
+	$self->{OK} = 0 unless ( defined $href->{User} );
 	return;
 }
 
@@ -103,12 +107,15 @@ print( defined( $client ) ? "ok 2\n" : "not ok 2\n" );
 
 $client->SetClient( "someclientname" );
 $client->SetProtocol( "tag", "" );
+$client->SetProtocol( "specstring", "" );
 $client->SetPort( $p4port );
 print( $client->Init() ? "ok 3\n" : "not ok 3\n" );
 print( $client->GetClient() eq "someclientname" ? "ok 4\n" : "not ok 4\n" );
 
-# The only real test we run here.
-$client->SetCwd( "/" );
 $client->Users( $ui );	# Using Autoloading syntax
 print( $ui->OK() ? "ok 5\n" : "not ok 5\n" );
+
+$client->User( $ui, "-o" );
+print( $ui->OK() ? "ok 6\n" : "not ok 6\n" );
+
 $client->Final();

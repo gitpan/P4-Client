@@ -144,8 +144,9 @@ sub Prompt($)
 
 #
 # Function to diff two files. This default implementation does nothing of
-# great use. Users should consider using the Algorithm::Diff module to get
-# real diff listings.
+# great use and is intended to be overridden in derived classes. It's only
+# called if you have previously called P4::Client::DoPerlDiffs() as by
+# default the diff output will go through the OutputText() interface.
 #
 sub Diff($$$$)
 {
@@ -263,10 +264,13 @@ derive a subclass from P4::UI and override the appropriate methods.
 
 =item C<Diff( $f1, $f2, $flags, $differ )>
 
-	Diff two files. The default implementation of this method
+	Diff two files manually. The default implementation of this method
 	does nothing of any great use. It's intended to be overridden
-	in subclasses.
-	
+	in subclasses for users who want to do the diffs themselves. 
+	This method will not be invoked unless you have previously
+	called the P4::Client::DoPerlDiffs() method to specify your
+	prediliction for doing things the hard way. Otherwise diff
+	output goes out through OutputText().
 
 =back
 

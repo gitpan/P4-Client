@@ -1,4 +1,40 @@
 Revision history for Perl extension P4::Client.
+2.2279 Fri Oct 25 2002
+        - Bumped version to 2.2279 to make CPAN.pm get people the latest
+	  version. It thought that 1.977 was the latest release!
+
+	  No functional change.
+
+1.2223 Fri Oct 15 2002
+	- Relegate diff support added in 1.1976 to the bottom drawer. It's
+	  still there if you really want it but you must call 
+
+	     $client->DoPerlDiffs();
+
+	  to specify your preference. The new implementation uses the Diff
+	  class provided by the P4 client API to perform the diff and just
+	  pushes the output out through the P4::UI::OutputText() interface.
+	  This means you will always get the same output as "p4 diff" 
+	  because it's using the same classes, and you don't need to install
+	  any extra Perl modules to get diff support.
+
+1.2084 Fri Sep 06 2002
+	- Removed ugly hack preserving the specdef in perl hashes. There's
+          no need for it as the server kindly provides it when you run
+          the "p4 XXX -i".
+	
+	- A little tidying of the test harness. It's not great, but there's
+	  at least something in there to check the form parsing now.
+
+1.2010 Fri Aug 09 2002
+	- Bug fix. When using ParseForms() mode, if a user inserts a hash or
+	  an object into the spec before calling SetInput() a crash could
+	  occur. It's a stupid thing to do, but it should not cause a crash.
+	  P4-Client is now stricter about what it will accept and will reject
+	  blessed references as form members altogether. Passing an array which
+	  contains a hash or other such structures will also now get you 
+	  nowhere.
+
 1.1980 Mon Jul 29 2002
 	- Port to ActivePerl > 623. Convert all fprintf's to just plain old
 	  printf to avoid PerlIO mess. Include math.h early on Win32 to 

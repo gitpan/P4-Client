@@ -33,7 +33,7 @@ use vars qw( $VERSION @ISA @EXPORT @EXPORT_OK $AUTOLOAD );
 @EXPORT_OK = qw( );
 @EXPORT = qw( );
 
-$VERSION = '1.1980';
+$VERSION = '2.2279';
 
 bootstrap P4::Client $VERSION;
 
@@ -46,6 +46,18 @@ sub DebugLevel
     my $self = shift;
     $self->{ "Debug" } = shift if ( @_ );
     $self->{ "Debug" };
+}
+
+sub DoPerlDiffs
+{
+    my $self = shift;
+    $self->{ "PerlDiffs" } = 1;
+}
+
+sub DoP4Diffs
+{
+    my $self = shift;
+    $self->{ "PerlDiffs" } = 0;
 }
 
 
@@ -278,6 +290,37 @@ For example:
 C<< $client->DebugLevel( 1 ) >>
 C<< $client->DebugLevel( 0 ) >>
 C<< print( "Debug level = ", $client->DebugLevel(), "\n" ) >>
+
+=back
+
+=item C<Client::DoPerlDiffs()>
+
+Specify that you will handle the comparing of files within Perl space
+yourself by overriding the Diff() method in your derived class. This
+method is preserved for backwards compatibility with previous releases
+of P4::Client.
+
+For example:
+
+=over 4
+
+C<< $client->DoPerlDiffs() >>
+C<< $client->Diff( $ui, "file.c" ) >>
+
+=back
+
+=item C<Client::DoP4Diffs()>
+
+Specify that you want P4::Client to send the output of "p4 diff" commands
+through the UI::OutputText() method as for other commands. This is the
+default behaviour.
+
+For example:
+
+=over 4
+
+C<< $client->DoP4Diffs() >>
+C<< $client->Diff( $ui, "file.c" ) >>
 
 =back
 

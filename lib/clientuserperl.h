@@ -48,6 +48,7 @@ class ClientUserPerl : public ClientUser
 	       			char *diffFlags, Error *e );
 
 		void	DebugLevel( int d ) { debug = d; }
+		void	DoPerlDiffs( int flag )	{ perlDiffs = flag; }
 
     private:
 		void 	DictToHash( StrDict *d, HV *hv );
@@ -59,6 +60,7 @@ class ClientUserPerl : public ClientUser
     private:
 	SV*		perlUI;
 	int		debug;
+	int		perlDiffs;
 
 };
 
