@@ -12,7 +12,8 @@ modification, are permitted provided that the following conditions are met:
     notice, this list of conditions and the following disclaimer in the
     documentation and/or other materials provided with the distribution.
 
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTR
+IBUTORS "AS IS"
 AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
 ARE DISCLAIMED. IN NO EVENT SHALL PERFORCE SOFTWARE, INC. BE LIABLE FOR ANY
@@ -25,6 +26,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 */
 
+#include "stdhdrs.h"
 #include "clientapi.h"
 #include "EXTERN.h"
 #include "perl.h"
@@ -44,6 +46,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 void
 ClientUserPerl::Edit( FileSys *f1, Error *e )
 {
+	dTHX;
 	dSP;
 	ENTER;
 	SAVETMPS;
@@ -70,6 +73,7 @@ ClientUserPerl::Edit( FileSys *f1, Error *e )
 void	
 ClientUserPerl::ErrorPause( char *errBuf, Error *e )
 {
+	dTHX;
 	dSP;
 	ENTER;
 	SAVETMPS;
@@ -99,6 +103,7 @@ ClientUserPerl::HandleError( Error *e )
 	StrBuf	errBuf;
 
 	e->Fmt( &errBuf );
+	dTHX;
 	dSP;
 	ENTER;
 	SAVETMPS;
@@ -126,6 +131,7 @@ ClientUserPerl::InputData( StrBuf *strbuf, Error *e )
 {
 	I32	n; 	/* Number of items returned */
 
+	dTHX;
 	dSP;
 	ENTER;
 	SAVETMPS;
@@ -152,6 +158,7 @@ ClientUserPerl::InputData( StrBuf *strbuf, Error *e )
 void 	
 ClientUserPerl::OutputError( char *errBuf )
 {
+	dTHX;
 	dSP;
 	ENTER;
 	SAVETMPS;
@@ -178,6 +185,7 @@ void
 ClientUserPerl::OutputInfo( char level, const_char *data )
 {
 	int	lev;
+	dTHX;
 	dSP;
 	ENTER;
 	SAVETMPS;
@@ -221,6 +229,7 @@ ClientUserPerl::OutputStat( StrDict *varList )
 
 	
 	// Enter new Perl scope
+	dTHX;
 	dSP;
 	ENTER;
 	SAVETMPS;
@@ -259,6 +268,7 @@ ClientUserPerl::OutputStat( StrDict *varList )
 void
 ClientUserPerl::OutputText( const_char *data, int length )
 {
+	dTHX;
 	dSP;
 	ENTER;
 	SAVETMPS;
@@ -300,6 +310,7 @@ ClientUserPerl::Prompt( const StrPtr &msg, StrBuf &rsp,
 	    return;
 	}
 
+	dTHX;
 	dSP;
 	ENTER;
 	SAVETMPS;

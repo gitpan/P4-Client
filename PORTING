@@ -1,7 +1,7 @@
 		Porting Notes for P4::Client
 		============================
 
-So far, I've ported this extension to Linux and FreeBSD, and no further.
+So far, I've ported this extension to Linux and FreeBSD, and now Win2K.
 It should go pretty cleanly onto almost any Unix platform, particularly
 if you're using gcc as your compiler.
 

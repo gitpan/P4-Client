@@ -23,9 +23,11 @@
 
 use ExtUtils::MakeMaker;
 use English;
+use Config;
 
 # Parent passes down options
 my $opts = $_[0];
+
 
 WriteMakefile (
 	   NAME   => 'P4::Client::lib',
@@ -39,7 +41,7 @@ WriteMakefile (
 
 
 sub MY::top_targets {
-'
+my $header = '
 all :: static
 
 pure_all :: static
@@ -47,6 +49,17 @@ pure_all :: static
 static ::       libp4$(LIB_EXT)
 
 libp4$(LIB_EXT): $(O_FILES)
-	$(AR) cr libp4$(LIB_EXT) $(O_FILES)
 ';
+
+my $trailer;
+if( $^O eq "MSWin32" )
+{
+	$trailer = '	$(AR) /OUT:libp4$(LIB_EXT) $(O_FILES)';
+}
+else
+{
+	$trailer = '	$(AR) cr libp4$(LIB_EXT) $(O_FILES)';
+}
+
+$header . $trailer;
 }
