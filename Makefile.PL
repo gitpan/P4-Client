@@ -23,6 +23,7 @@
 
 use ExtUtils::MakeMaker;
 use English;
+use Cwd 'abs_path';
 use strict;
 
 #$ExtUtils::MakeMaker::Verbose = 1;
@@ -67,8 +68,12 @@ EOF
 	# Get the path to the Perforce API
 	my $apipath = "";
 	print( "Where is the Perforce API to be found: " );
-	$apipath = <>;
+	$apipath = <STDIN>;
 	$apipath =~ s/\n//;
+
+	# Filthy support for ~/ type paths ( NOT ~user/ though! )
+	$apipath =~ s#\~/#$ENV{HOME}/#;
+	$apipath = abs_path( $apipath );
 
 	# These two aren't in the hints file because some variant of them is
 	# needed on every OS so it's better to have it visible.
@@ -100,7 +105,7 @@ the tests
 
 EOF
 	print( "Enter the address of your Perforce server: [localhost:1666]: ");
-	my $p4port = <>;
+	my $p4port = <STDIN>;
 	$p4port =~ s/\n//;
 	$p4port = "localhost:1666" if ( $p4port =~ /^$/ );
 

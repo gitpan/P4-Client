@@ -226,6 +226,10 @@ GetCwd( THIS )
 	INIT:
 	    ClientApi	*c;
 	CODE:
+            c = ExtractClient( THIS );
+            if ( ! c )
+		XSRETURN_UNDEF;
+
 	    StrPtr cwd = c->GetCwd();
 	    RETVAL = newSVpv( cwd.Text(), 0 );
 	OUTPUT:

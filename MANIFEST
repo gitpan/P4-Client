@@ -6,6 +6,7 @@ LICENSE
 PORTING
 README
 Makefile.PL
+example.pl
 test.pl.skel
 UI.pm
 lib/clientuserperl.cc

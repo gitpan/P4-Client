@@ -42,6 +42,12 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 # define USE_NEW_PERL_API
 #endif
 
+#ifndef dTHX
+/*
+ * Threaded Perl context macros aren't available in earlier Perl versions
+ */
+# define dTHX 	1
+#endif
 
 void
 ClientUserPerl::Edit( FileSys *f1, Error *e )

@@ -31,7 +31,6 @@ require Exporter;
 @EXPORT_OK = qw( );
 
 @EXPORT = qw(
-	new
 );
 
 sub new
@@ -128,6 +127,8 @@ sub Prompt($)
 	print("$prompt" );
 	return <>;
 }
+
+1;
 
 __END__
 

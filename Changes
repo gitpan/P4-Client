@@ -1,7 +1,14 @@
 Revision history for Perl extension P4::Client.
+0.52  Thu Apr 05 2001
+	- Fix by Gurusamy Sarathy <gsar@activestate.com> to
+	  P4::Client::GetCwd(). 
+	- Fixed minor bugs in UI.pm. Module now returns true on load and
+	  new is no longer exported into the namespace of the caller (duh!)
+	- Added an example script to help get people started.
 
 0.51  Thu Feb 08
 	- Ported to Win32 ( well Windows 2000 anyway )
+	- Fixed building on Threaded perls like ActivePerl
 
 0.50  Thu Jan 25
 	- Renamed P4::ClientApi to P4::Client.

@@ -22,3 +22,6 @@ Build as usual:
 If you have problems, see the PORTING file for likely reasons and what
 you should do about it.
 
+The file example.pl has a simple example of how to use the modules to
+get you started.
+
