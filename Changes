@@ -1,4 +1,21 @@
 Revision history for Perl extension P4::Client.
+Head Rev - not yet released
+	- Support for form parsing when using the tag and specstring 
+	  protocol options. When both these options are in effect, the
+	  data is returned to the caller as a hash containing the parsed
+	  form in key => value format.
+	  
+1.923	Fri Oct 05 2001
+	- Better documentation on P4::UI class.
+	- UI::OutputText() now respects the length parameter
+	- Members of the hashref passed to OutputStat are no longer
+	  mortal so that they will persist after OutputStat returns if
+	  they are referenced by user code.
+	- UI::OutputError() now blurts to stderr instead of stdout which
+	  it should have from the start.
+	- Win32 UI::Edit() now invokes notepad if nothing better has been
+	  specified.
+	
 0.52  Thu Apr 05 2001
 	- Fix by Gurusamy Sarathy <gsar@activestate.com> to
 	  P4::Client::GetCwd(). 

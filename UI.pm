@@ -51,7 +51,9 @@ sub Edit($)
 			$ENV{"P4EDITOR"} :
 			defined( $ENV{"EDITOR"} ) ?
 				$ENV{"EDITOR"} :
-				"vi";
+				$^O eq "MSWin32" ? 
+					"notepad" : 
+					"vi";
 
 	system( "$editor $filename" );
 }
@@ -95,7 +97,7 @@ sub OutputInfo($$)
 sub OutputError($)
 {
 	my ($self, $err) = @_;
-	print( $err );
+	print( STDERR $err );
 }
 
 
@@ -114,7 +116,7 @@ sub OutputStat
 sub OutputText($$)
 {
 	my ($self, $text, $len ) = @_;
-	print( $text );		# Ignore length unless it becomes an issue
+	printf( "%*s", $len, $text );
 }
 
 
@@ -168,10 +170,56 @@ derive a subclass from P4::UI and override the appropriate methods.
 
 =over 4
 
-=item C<UI::new()>
+=item C<new()>
 
 	Constructor. The only method of this class you call
 	directly.
+
+=item C<Edit( $filename )>
+
+	Method called when the Perforce server wants the client to
+	edit a specform ( changespec, jobspec, clientspec etc.). 
+	The default implementation simply invokes your chosen editor
+	by checking the environment variables P4EDITOR and EDITOR
+	before falling back on vi/notepad and hoping they're there.
+
+=item C<ErrorPause( $message )>
+
+	Called to alert the user to an error message which they
+	must acknowledge before continuing. Default implementation
+	prints the message on stdout and prompts the user to "Hit
+	Return to continue".
+
+=item C<InputData()>
+
+	Used to read information directly from the user. Called
+	in response to the "-i" flag to many Perforce commands.
+	i.e. "p4 submit -i".
+
+=item C<OutputInfo( $level, $data )>
+
+	Writes data to stdout prefixed by $level occurances of 
+	"..." 
+
+=item C<OutputError( $error )>
+
+	Blurt an error to stderr. The error message arrives 
+	as preformatted text. 
+
+=item C<OutputStat( $hashref )>
+
+	Print the output of a command in tagged format. The tagged
+	data is passed as a hash reference for ease of use.
+
+=item C<OutputText( $text, $length )>
+
+	Prints $length bytes of $text on STDOUT
+
+
+=item C<Prompt( $prompt )>
+
+	Prints the prompt string $prompt and then reads a line
+	of input from the user returning the input line.
 
 =back
 

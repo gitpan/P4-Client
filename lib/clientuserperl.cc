@@ -26,10 +26,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 */
 
-#include "stdhdrs.h"
 #include "clientapi.h"
+#include "spec.h"
 #include "EXTERN.h"
 #include "perl.h"
+#include "XSUB.h"
 
 #ifdef Error
 // Defined for unknown reasons by old versions of Perl to be Perl_Error
@@ -48,6 +49,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 # define dTHX 	1
 #endif
+
+void HashToForm( HV *hv, StrBuf *b );
 
 void
 ClientUserPerl::Edit( FileSys *f1, Error *e )
@@ -136,6 +139,7 @@ void
 ClientUserPerl::InputData( StrBuf *strbuf, Error *e )
 {
 	I32	n; 	/* Number of items returned */
+	int	useHash = 0;
 
 	dTHX;
 	dSP;
@@ -153,8 +157,56 @@ ClientUserPerl::InputData( StrBuf *strbuf, Error *e )
 #endif
 
 	SPAGAIN;
-	if ( n == 1 )
+	if ( ! n )
+	{
+	    PUTBACK;
+	    return;
+	}
+
+	SV *sv = POPs;
+	HV *hv;
+
+	if ( SvROK( sv ) )
+	{
+	    // We've been passed a reference - hopefully to a hash
+	    hv = (HV *)SvRV( sv );
+	    useHash = 1;
+	}
+	else if ( SvTYPE( sv ) == SVt_PV )
+	{
 	    strbuf->Set( POPp );
+	}
+	else if ( SvTYPE( sv ) == SVt_PVHV )
+	{
+	    hv = (HV *)sv;
+	    useHash = 1;
+	}
+	else
+	{
+	    warn( "Invalid data returned from InputData() method" );
+	}
+
+	if( useHash )
+	{
+
+	    /*
+	     * If the hash contains a "specdef" member, then it contains
+	     * a form. We Format the form into a StrBuf and return that
+	     * to our caller
+	     */
+
+	    SV 	**t = hv_fetch( hv, "specdef", 7, 0 );
+
+	    if ( t ) 
+	    {
+		sv = *t;
+		HashToForm( hv, strbuf );
+	    }
+	    else
+	    {
+		warn( "Can't convert hashref into a form. No spec supplied" );
+	    }
+	}
 
 	PUTBACK;
 	FREETMPS;
@@ -227,13 +279,17 @@ ClientUserPerl::OutputInfo( char level, const_char *data )
 void	
 ClientUserPerl::OutputStat( StrDict *varList )
 {
-	HV	*data;
-	SV	*sv;
-	int i;
-	StrBuf msg;
-	StrPtr var, val;
+	HV		*hv;
+	SV		*href;
+	int		i;
+	StrBuf		msg;
+	StrPtr		var, val;
+	StrDict		*input = varList;
+	StrPtr		*data = varList->GetVar( "data" );
+	StrPtr		*spec = varList->GetVar( "specdef" );
+	SpecDataTable	specData;
+	Error		e;
 
-	
 	// Enter new Perl scope
 	dTHX;
 	dSP;
@@ -242,20 +298,49 @@ ClientUserPerl::OutputStat( StrDict *varList )
 	PUSHMARK(SP);
 
 	// Create a new HV and make it mortal
-	data = newHV();
-	sv_2mortal( (SV *)data );
+	hv = newHV();
+	sv_2mortal( (SV *)hv );
 
-	for( i = 0; varList->GetVar( i, var, val ); i++ )
+	/*
+	 * If both spec and data are defined, then the user has set both the
+	 * "tag" and "specstring" protocol options so we do them the 
+	 * favour of parsing the spec here and presenting the parsed
+	 * spec as a hash of key->value pairs. If not, then we just
+	 * produce a direct hash from the StrDict object.
+	 */
+
+	if ( spec && data )
+	{
+	    Spec s( spec->Text(), "" );
+
+	    s.Parse( data->Text(), &specData, &e );
+	    if ( e.Test() )
+	    {
+		HandleError( &e );
+		return;
+	    }
+
+	    // Store the specdef inside the hash. We'll need it if they
+	    // are trying to do a submit later.
+	    hv_store( hv, "specdef", 7, newSVpv( spec->Text(), 0 ), 0 );
+
+	    input = specData.Dict();
+	}
+
+	// Now store the rest
+	for( i = 0; input->GetVar( i, var, val ); i++ )
 	{
 	    if( var == "func" ) continue;
-	    hv_store( data, var.Text(), var.Length(), 
-	    	sv_2mortal( newSVpv( val.Text(),0)) ,0 );
+	    if ( var == "specdef" && ! data ) continue;
+
+	    hv_store( hv, var.Text(), var.Length(), 
+	    	 newSVpv( val.Text(),0) ,0 );
 	}
 
 	// Now call the perl sub and pass a ref to the HV as its arg
-	sv = newRV( (SV *)data );
+	href = newRV( (SV *)hv );
 	XPUSHs( perlUI );
-	XPUSHs( sv );
+	XPUSHs( href );
 	PUTBACK;
 
 #ifdef USE_NEW_PERL_API
@@ -344,3 +429,30 @@ ClientUserPerl::Prompt( const StrPtr &msg, StrBuf &rsp,
 }
 
 
+void
+HashToForm( HV *hv, StrBuf *b )
+{
+    SV	**t = hv_fetch( hv, "specdef", 7, 0 );
+    SV	*specstr = *t;
+
+    if ( ! SvPOK( specstr ) )
+    {
+	warn( "specdef member is not a string" );
+	return;
+    }
+
+    SpecDataTable	specData;
+    Spec		s( SvPV( specstr, PL_na ), "" );
+
+    char	*key;
+    SV		*val;
+    I32		klen;
+
+    for ( hv_iterinit( hv ); val = hv_iternextsv( hv, &key, &klen ); )
+    {
+	if ( !SvPOK( val ) ) continue;
+	specData.Dict()->SetVar( key, SvPV( val, PL_na ) );
+    }
+
+    s.Format( &specData, b );
+}

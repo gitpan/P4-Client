@@ -2,7 +2,11 @@
 			======
 
 This extension implements an object-oriented Perl interface to the Perforce
-SCM System using the API supplied by Perforce software.
+SCM System using the API supplied by Perforce software. It's a straight
+port of the Perforce API so not very Perl-like. The P4 module (also available
+from the Perforce public depot under //guest/tony_smith/perforce/API/P4/...
+provides a much more perl-like wrapper on top of this interface. Most people
+will want to install that too.
 
 You must download and install the API before you can build this extension.
 
@@ -25,3 +29,14 @@ you should do about it.
 The file example.pl has a simple example of how to use the modules to
 get you started.
 
+NOTE FOR LINUX USERS
+--------------------
+
+Users of recent Linux distributions who are using the linux52x86/p4api.tar 
+from the Perforce FTP site may get "undefined symbol __eh_pc" when running
+"make test".  The problem is caused by changes in the gcc compiler made 
+since the version shipped with Red Hat 5.2 which is used for Perforce builds.
+
+If you get this problem, you should use the following API build instead:
+
+	ftp://ftp.perforce.com/pub/perforce/r00.1/bin.linux60x86/p4api.tar

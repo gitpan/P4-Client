@@ -23,4 +23,4 @@
 
 $self->{CC} 		= "c++";
 $self->{LD} 		= "c++";
-$self->{DEFINE} 	.= " -DOS_LINUX -Dconst_char='const char'";
+$self->{DEFINE} 	.= " -DOS_LINUX -Dconst_char='char'";
